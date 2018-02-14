@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Achievements>
+	<Definitions>
+		<Definition title="Join Me!" description="Join 5 sessions as a Host" goal="5" />
+		<Definition title="Added Email" description="Added email to your user profile" goal="true" />
+	</Definitions>
+	<Users>
+		<User name="stacy">
+			<UserAchievement title="Join Me!" progress="5" />
+			<UserAchievement title="Added Email" progress="true" />
+		</User>
+	</Users>
+</Achievements>

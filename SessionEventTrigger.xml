@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<SessionEventTriggers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SessionEventTrigger Name="Open chat window when host connects" EventFilter="Event.EventType = 'Connected' AND Connection.ProcessType = 'Host'">
+    <Actions>
+    	<!--
+    		"https://support.example.com:8040" should be replaced with your ScreenConnect url.
+    		"8df9b1b5-e272-4b94-9a5c-5cc65b7b34e9" should be replaced with the name of the directory under App_Extensions that contains these files.
+    		"hipoDHsIoTPTSbPPnSCR" should be replaced with whatever you have in Service.ashx.
+    	-->
+      <TriggerAction xsi:type="HttpTriggerAction" Uri="https://support.example.com:8040/App_Extensions/8df9b1b5-e272-4b94-9a5c-5cc65b7b34e9/Service.ashx/SendMessage/hipoDHsIoTPTSbPPnSCR/{Session.SessionID}" HttpMethod="GET" />
+    </Actions>
+  </SessionEventTrigger>
+</SessionEventTriggers>

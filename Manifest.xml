@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionManifest>
+	<Version>1.0</Version>
+	<Name>Achievements</Name>
+	<Author></Author>
+	<ShortDescription>Adds some gamification</ShortDescription>
+	<Components>
+		<ClientScriptInitializer SourceFile="Initializer.js" />
+		<WebServiceReference SourceFile="Service.ashx" />
+		<!--<WebServiceReference SourceFile="Achievements.aspx" />-->
+		<SessionEventTriggerDefinition SourceFile="SessionEventTrigger.xml" />
+		<WebResourcesDefinition SourceFile="Web.en-US.resx" />
+	</Components>
+	<Settings>
+		<Setting Name="Host" IsServerOnly="true">
+			<Description>A name for the message sender. (Note: This does not have to be an actual user.)</Description>
+			<DefaultValue>HostBot4000</DefaultValue>
+		</Setting>
+		<Setting Name="Message" IsServerOnly="true">
+			<Description>The message to be sent.</Description>
+			<DefaultValue>Hello!</DefaultValue>
+		</Setting>
+	</Settings>
+</ExtensionManifest>
