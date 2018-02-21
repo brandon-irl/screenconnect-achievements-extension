@@ -6,11 +6,7 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 			//	null
 			//);
 
-			SC.service.GetAchievementDefinitions(function (result) {
-				console.log(result);
-			});
-
-			SC.service.GetUsers(function (result) {
+			SC.service.GetAchievementDataForLoggedOnUser(function (result) {
 				SC.dialog.showModalDialog(
 					'Prompt',
 					SC.res['Achievements.AchievementText'],
@@ -20,17 +16,6 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 					]
 				);
 			});
-
-			//SC.service.GetAchievementDataForLoggedOnUser(function (result) {
-			//	SC.dialog.showModalDialog(
-			//		'Prompt',
-			//		SC.res['Achievements.AchievementText'],
-			//		[
-			//			SC.dialog.createTitlePanel(SC.res['Achievements.AchievementText']),
-			//			SC.ui.createElement('p', JSON.stringify(result))
-			//		]
-			//	);
-			//});
 
 			break;
 	}

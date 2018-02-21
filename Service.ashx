@@ -1,10 +1,14 @@
 <%@ WebHandler Language="C#" Class="Service" %>
 
 using System;
+using System.Text;
+using System.IO;
 using System.Web;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 using Elsinore.ScreenConnect;
 
@@ -45,45 +49,94 @@ public class Service : WebServiceBase
 	public object GetAchievementDataForLoggedOnUser()
 	{
 		var username = HttpContext.Current.User.Identity.Name;
-
-		return new
-		{
-			Username = username,
-			Achievements = new List<dynamic> {
-					new{
-						Title = "Joined Sessions",
-						Progress = 3,
-						Goal = 5
-					},
-				}
-		};
+		return AchievementsProvider.GetUser(username);
 	}
 
 
-	public static class AchievementsProvider
+	//	*****************************************Helper Stuff*****************************************
+	public static class AchievementsProvider        // TODO: polymorphism
 	{
+		const string xmlFileName = "Achievements.xml";
+
 		public static List<Definition> GetDefinitions()
 		{
+			return TryReadObjectXml<List<Definition>>("Definitions");
+		}
 
-			return TryGetObjectXml<List<Definition>>("Definitions");
+		public static User GetUser(string username)
+		{
+			var user = TryReadObjectXml<User>("User", (_ => _.GetAttribute("Name") == username));
+			if (user == null)
+			{
+				user = EnsureUserExistsInXml(username);
+			}
+			return user;
 		}
 
 		public static List<User> GetUsers()
 		{
-			return TryGetObjectXml<List<User>>("Users");
+			return TryReadObjectXml<List<User>>("Users");
 		}
 
-		private static T TryGetObjectXml<T>(string objectName, Func<XmlReader, bool> func)
+		private static T TryReadObjectXml<T>(string objectName)
 		{
-			using (var xmlReader = XmlReader.Create(ExtensionContext.Current.BasePath + @"\Achievements.xml"))
+			return TryReadObjectXml<T>(objectName, (_ => true));
+		}
+
+		private static T TryReadObjectXml<T>(string objectName, Func<XmlReader, bool> additionalValidator)
+		{
+			try
 			{
-				while (xmlReader.Read())
+
+				using (var xmlReader = XmlReader.Create(ExtensionContext.Current.BasePath + @"\" + xmlFileName))
 				{
-					if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == objectName && func(xmlReader))
-						return Deserialize<T>(xmlReader, new XmlRootAttribute(objectName));
+					while (xmlReader.Read())
+					{
+						if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == objectName && additionalValidator(xmlReader))
+							return Deserialize<T>(xmlReader, new XmlRootAttribute(objectName));
+					}
 				}
 			}
+			catch (FileNotFoundException)
+			{
+				EnsureAchievementsXmlExists();
+				return TryReadObjectXml<T>(objectName, additionalValidator);
+			}
 			return default(T);
+		}
+
+		/// <typeparam name="T">Type of object to be written</typeparam>
+		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <param name="obj">Object to be written</param>
+		private static void WriteObjectXml<T, K>(T obj)
+		{
+			WriteObjectXml<T, K>(obj, (_ => true));
+		}
+
+		/// <typeparam name="T">Type of object to be written</typeparam>
+		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <param name="obj">Object to be written</param>
+		/// <param name="parentValidator">Custom function for validating parent object</param>
+		private static void WriteObjectXml<T, K>(T obj, Func<object, bool> parentValidator)
+		{
+			try
+			{
+				var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+				var parentElement = xdoc.Descendants(typeof(K).Name)
+						.Where(_ => parentValidator(_))
+						.FirstOrDefault();
+				if (parentElement != null)
+				{
+					parentElement.Add(ToXElement<T>(obj));
+					xdoc.Save(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+				}
+				else
+					throw new ArgumentException("Could not find specified parent in XML");
+			}
+			catch (FileNotFoundException)
+			{
+				EnsureAchievementsXmlExists();
+			}
 		}
 
 		private static T Deserialize<T>(XmlReader xmlReader, XmlRootAttribute rootAttribute)
@@ -92,34 +145,95 @@ public class Service : WebServiceBase
 			return (T)serilalizer.Deserialize(xmlReader);
 		}
 
-		[XmlType("Definition")]
+		private static XElement ToXElement<T>(object obj)
+		{
+			using (var memoryStream = new MemoryStream())
+			{
+				using (TextWriter streamWriter = new StreamWriter(memoryStream))
+				{
+					var xmlSerializer = new XmlSerializer(typeof(T));
+					xmlSerializer.Serialize(streamWriter, obj);
+					return XElement.Parse(Encoding.ASCII.GetString(memoryStream.ToArray()));
+				}
+			}
+		}
+
+		private static T FromXElement<T>(XElement xElement)
+		{
+			var xmlSerializer = new XmlSerializer(typeof(T));
+			return (T)xmlSerializer.Deserialize(xElement.CreateReader());
+		}
+
+		private static User EnsureUserExistsInXml(string username)
+		{
+			var user = new User
+			{
+				Name = username
+			};
+			WriteObjectXml<User, Users>(user);
+			return GetUser(username);
+		}
+
+		private static void EnsureAchievementsXmlExists()
+		{
+			// TODO
+		}
+
+		[SerializableAttribute()]
+		[XmlTypeAttribute(AnonymousType = true)]
+		[XmlRootAttribute(Namespace = "", IsNullable = false)]
+		public partial class Achievements
+		{
+			[XmlElementAttribute("Definitions", typeof(Definitions), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+			[XmlElementAttribute("Users", typeof(Users), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+			public object[] Items;
+		}
+
+		[System.SerializableAttribute()]
+		[XmlTypeAttribute(AnonymousType = true)]
+		public partial class Definitions
+		{
+			[XmlElementAttribute("Definition", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+			public Definition[] Definition;
+		}
+
+		[XmlTypeAttribute(AnonymousType = true)]
 		public class Definition
 		{
-			[XmlAttribute("title")]
+			[XmlAttributeAttribute()]
 			public string Title;
-			[XmlAttribute("description")]
+			[XmlAttributeAttribute()]
 			public string Description;
-			[XmlAttribute("goal")]
+			[XmlAttributeAttribute()]
 			public string Goal;
 		}
 
-		[XmlType("UserAchievement")]
-		public class UserAchievement
+		[System.SerializableAttribute()]
+		[XmlTypeAttribute(AnonymousType = true)]
+		public partial class Users
 		{
-			[XmlAttribute("title'")]
-			public string Title;
-			[XmlAttribute("progress")]
-			public string Progress;
+			[XmlElementAttribute("User", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+			public User[] User;
 		}
 
-		[XmlRoot("User")]
+		[System.SerializableAttribute()]
+		[XmlTypeAttribute(AnonymousType = true)]
 		public class User
 		{
-			[XmlAttribute("name")]
+			[XmlAttributeAttribute()]
 			public string Name;
-			[XmlElement("UserAchievement")]
-			List<UserAchievement> UserAchievements;
+			[XmlElementAttribute("UserAchievement", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+			public UserAchievement[] UserAchievement;
+		}
+
+		[System.SerializableAttribute()]
+		[XmlTypeAttribute(AnonymousType = true)]
+		public class UserAchievement
+		{
+			[XmlAttributeAttribute()]
+			public string Title;
+			[XmlAttributeAttribute()]
+			public string Progress;
 		}
 	}
-
 }
