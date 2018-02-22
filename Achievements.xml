@@ -5,14 +5,8 @@
     <Definition Title="Added Email" Description="Added email to your user profile" Goal="true" />
   </Definitions>
   <Users>
-    <User Name="Daniel">
-      <UserAchievement Title="Join Me!" Progress="5" />
-      <UserAchievement Title="Added Email" Progress="true" />
+    <User xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="Administrator">
+      <UserAchievement xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Title="Added Email" Progress="test5" />
     </User>
-    <User Name="stacy">
-      <UserAchievement Title="Join Me!" Progress="5" />
-      <UserAchievement Title="Added Email" Progress="true" />
-    </User>
-    <User xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="Administrator" />
   </Users>
 </Achievements>

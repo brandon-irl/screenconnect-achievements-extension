@@ -10,10 +10,17 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
-using Elsinore.ScreenConnect;
+using ScreenConnect;
 
 public class Service : WebServiceBase
 {
+	AchievementsProvider achievementsProvider;
+
+	public Service()
+	{
+		this.achievementsProvider = new AchievementsProvider();
+	}
+
 	// This sample just sends a message to a session when a host connects. (This can be used as an ad hoc way to make the chat window appear.)
 	public void SendMessage(String key, Guid sessionID)
 	{
@@ -32,40 +39,61 @@ public class Service : WebServiceBase
 
 	public object GetAchievementDefinitions()
 	{
-		return AchievementsProvider.GetDefinitions();
+		return this.achievementsProvider.GetDefinitions();
 	}
 
 	public object GetUsers()
 	{
-		return AchievementsProvider.GetUsers();
+		return this.achievementsProvider.GetUsers();
 	}
 
-	// TODO: do something with this for long polling
-	//public async Task<object> GetAchievementData(long version)
-	//{
-	//		var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
-	//}
-
-	public object GetAchievementDataForLoggedOnUser()
+	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)	// TODO call this from JS
 	{
-		var username = HttpContext.Current.User.Identity.Name;
-		return AchievementsProvider.GetUser(username);
+		var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
+		return new
+		{
+			Version = newVersion,
+			Achievements = this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
+		};
+	}
+
+	public void UpdateAchievementForLoggedOnUser(string achievementTitle, string progress)
+	{
+		var definition = this.achievementsProvider.GetDefinition(achievementTitle);
+		if (definition == null)
+			throw new ArgumentException(string.Format("Achievement '{0}' does not exist", achievementTitle));
+
+		this.achievementsProvider.UpdateUserAchievement(
+			new AchievementsProvider.UserAchievement { Title = achievementTitle, Progress = progress },
+			this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
+		);
 	}
 
 
 	//	*****************************************Helper Stuff*****************************************
-	public static class AchievementsProvider        // TODO: polymorphism
+	public class AchievementsProvider : XmlProviderBase        // TODO: polymorphism
 	{
-		const string xmlFileName = "Achievements.xml";
-
-		public static List<Definition> GetDefinitions()
+		protected override string xmlFileName
 		{
-			return TryReadObjectXml<List<Definition>>("Definitions");
+			get
+			{
+				return "Achievements.xml";
+			}
 		}
 
-		public static User GetUser(string username)
+		public Definition GetDefinition(string definitionTitle)
 		{
-			var user = TryReadObjectXml<User>("User", (_ => _.GetAttribute("Name") == username));
+			return TryReadObjectXml<Definition>((_ => _.Title == definitionTitle));
+		}
+
+		public Definitions GetDefinitions()
+		{
+			return TryReadObjectXml<Definitions>();
+		}
+
+		public User GetUser(string username)
+		{
+			var user = TryReadObjectXml<User>((_ => _.Name == username));
 			if (user == null)
 			{
 				user = EnsureUserExistsInXml(username);
@@ -73,108 +101,28 @@ public class Service : WebServiceBase
 			return user;
 		}
 
-		public static List<User> GetUsers()
+		public Users GetUsers()
 		{
-			return TryReadObjectXml<List<User>>("Users");
+			return TryReadObjectXml<Users>();
 		}
 
-		private static T TryReadObjectXml<T>(string objectName)
+		public void UpdateUserAchievement(UserAchievement achievement, User user)
 		{
-			return TryReadObjectXml<T>(objectName, (_ => true));
+			WriteOrUpdateObjectXml<UserAchievement, User>(
+				achievement,
+				(_ => _.Title == achievement.Title),
+				(_ => _.Name == user.Name)
+			);
 		}
 
-		private static T TryReadObjectXml<T>(string objectName, Func<XmlReader, bool> additionalValidator)
+		private User EnsureUserExistsInXml(string username)
 		{
-			try
-			{
-
-				using (var xmlReader = XmlReader.Create(ExtensionContext.Current.BasePath + @"\" + xmlFileName))
-				{
-					while (xmlReader.Read())
-					{
-						if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == objectName && additionalValidator(xmlReader))
-							return Deserialize<T>(xmlReader, new XmlRootAttribute(objectName));
-					}
-				}
-			}
-			catch (FileNotFoundException)
-			{
-				EnsureAchievementsXmlExists();
-				return TryReadObjectXml<T>(objectName, additionalValidator);
-			}
-			return default(T);
-		}
-
-		/// <typeparam name="T">Type of object to be written</typeparam>
-		/// <typeparam name="K">Type of parent of object to be written</typeparam>
-		/// <param name="obj">Object to be written</param>
-		private static void WriteObjectXml<T, K>(T obj)
-		{
-			WriteObjectXml<T, K>(obj, (_ => true));
-		}
-
-		/// <typeparam name="T">Type of object to be written</typeparam>
-		/// <typeparam name="K">Type of parent of object to be written</typeparam>
-		/// <param name="obj">Object to be written</param>
-		/// <param name="parentValidator">Custom function for validating parent object</param>
-		private static void WriteObjectXml<T, K>(T obj, Func<object, bool> parentValidator)
-		{
-			try
-			{
-				var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
-				var parentElement = xdoc.Descendants(typeof(K).Name)
-						.Where(_ => parentValidator(_))
-						.FirstOrDefault();
-				if (parentElement != null)
-				{
-					parentElement.Add(ToXElement<T>(obj));
-					xdoc.Save(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
-				}
-				else
-					throw new ArgumentException("Could not find specified parent in XML");
-			}
-			catch (FileNotFoundException)
-			{
-				EnsureAchievementsXmlExists();
-			}
-		}
-
-		private static T Deserialize<T>(XmlReader xmlReader, XmlRootAttribute rootAttribute)
-		{
-			var serilalizer = new XmlSerializer(typeof(T), rootAttribute);
-			return (T)serilalizer.Deserialize(xmlReader);
-		}
-
-		private static XElement ToXElement<T>(object obj)
-		{
-			using (var memoryStream = new MemoryStream())
-			{
-				using (TextWriter streamWriter = new StreamWriter(memoryStream))
-				{
-					var xmlSerializer = new XmlSerializer(typeof(T));
-					xmlSerializer.Serialize(streamWriter, obj);
-					return XElement.Parse(Encoding.ASCII.GetString(memoryStream.ToArray()));
-				}
-			}
-		}
-
-		private static T FromXElement<T>(XElement xElement)
-		{
-			var xmlSerializer = new XmlSerializer(typeof(T));
-			return (T)xmlSerializer.Deserialize(xElement.CreateReader());
-		}
-
-		private static User EnsureUserExistsInXml(string username)
-		{
-			var user = new User
-			{
-				Name = username
-			};
+			var user = new User { Name = username };
 			WriteObjectXml<User, Users>(user);
 			return GetUser(username);
 		}
 
-		private static void EnsureAchievementsXmlExists()
+		protected override void EnsureXmlExists()
 		{
 			// TODO
 		}
@@ -235,5 +183,124 @@ public class Service : WebServiceBase
 			[XmlAttributeAttribute()]
 			public string Progress;
 		}
+	}
+
+	public abstract class XmlProviderBase
+	{
+		protected abstract string xmlFileName { get; }
+
+		protected T TryReadObjectXml<T>()
+		{
+			return TryReadObjectXml<T>((_ => true));
+		}
+
+		protected T TryReadObjectXml<T>(ScreenConnect.Func<T, bool> additionalValidator)
+		{
+			var objectName = typeof(T).Name;
+			try
+			{
+				var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+				return FromXElement<T>(xdoc.Descendants(typeof(T).Name)
+					.Where(_ => additionalValidator(FromXElement<T>(_)))        // TODO: find a way to only call FromXElement once
+					.FirstOrDefault());
+			}
+			catch (FileNotFoundException)
+			{
+				EnsureXmlExists();
+			}
+			return default(T);
+		}
+
+		/// <typeparam name="T">Type of object to be written</typeparam>
+		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <param name="obj">Object to be written</param>
+		protected void WriteObjectXml<T, K>(T obj)
+		{
+			WriteObjectXml<T, K>(obj, (_ => true));
+		}
+
+		/// <typeparam name="T">Type of object to be written</typeparam>
+		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <param name="obj">Object to be written</param>
+		/// <param name="parentValidator">Custom function for validating parent object</param>
+		protected void WriteObjectXml<T, K>(T obj, ScreenConnect.Func<K, bool> parentValidator)
+		{
+			try
+			{
+				EditXml((xdoc) =>
+				{
+					var parentElement = xdoc.Descendants(typeof(K).Name)
+							.Where(_ => parentValidator(FromXElement<K>(_)))
+							.FirstOrDefault();
+					if (parentElement != null)
+						parentElement.Add(ToXElement<T>(obj));
+					else
+						throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(K).Name));
+				}
+				);
+			}
+			catch (FileNotFoundException)
+			{
+				EnsureXmlExists();
+			}
+		}
+
+		protected void UpdateObjectXml<T>(T newObj, ScreenConnect.Func<T, bool> existingObjectValidator)
+		{
+			try
+			{
+				EditXml((xdoc) => xdoc.Descendants(typeof(T).Name)
+									.Where(_ => existingObjectValidator(FromXElement<T>(_)))
+									.FirstOrDefault()
+									.SafeDo(_ => _.ReplaceWith(ToXElement<T>(newObj)))
+				);
+			}
+			catch (FileNotFoundException)
+			{
+				EnsureXmlExists();
+			}
+		}
+
+		protected void WriteOrUpdateObjectXml<T, K>(T obj, ScreenConnect.Func<T, bool> objectValidator, ScreenConnect.Func<K, bool> parentValidator)
+		{
+			var item = TryReadObjectXml<T>(objectValidator);
+			if (item != null)
+				UpdateObjectXml<T>(obj, objectValidator);
+			else
+				WriteObjectXml<T, K>(obj, parentValidator);
+		}
+
+		protected T Deserialize<T>(XmlReader xmlReader)
+		{
+			var serilalizer = new XmlSerializer(typeof(T));
+			return (T)serilalizer.Deserialize(xmlReader);
+		}
+
+		protected XElement ToXElement<T>(object obj)
+		{
+			using (var memoryStream = new MemoryStream())
+			{
+				using (TextWriter streamWriter = new StreamWriter(memoryStream))
+				{
+					var xmlSerializer = new XmlSerializer(typeof(T));
+					xmlSerializer.Serialize(streamWriter, obj);
+					return XElement.Parse(Encoding.ASCII.GetString(memoryStream.ToArray()));
+				}
+			}
+		}
+
+		protected T FromXElement<T>(XElement xElement)
+		{
+			return Deserialize<T>(xElement.CreateReader());
+		}
+
+		protected void EditXml(Proc<XDocument> proc)
+		{
+
+			var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+			proc(xdoc);
+			xdoc.Save(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+		}
+		protected abstract void EnsureXmlExists();
 	}
 }

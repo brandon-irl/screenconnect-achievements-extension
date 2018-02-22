@@ -6,16 +6,22 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 			//	null
 			//);
 
-			SC.service.GetAchievementDataForLoggedOnUser(function (result) {
-				SC.dialog.showModalDialog(
-					'Prompt',
-					SC.res['Achievements.AchievementText'],
-					[
-						SC.dialog.createTitlePanel(SC.res['Achievements.AchievementText']),
-						SC.ui.createElement('p', JSON.stringify(result))
-					]
-				);
+			//SC.service.GetAchievementDataForLoggedOnUser(function (result) {
+			//	SC.dialog.showModalDialog(
+			//		'Prompt',
+			//		SC.res['Achievements.AchievementText'],
+			//		[
+			//			SC.dialog.createTitlePanel(SC.res['Achievements.AchievementText']),
+			//			SC.ui.createElement('p', JSON.stringify(result))
+			//		]
+			//	);
+			//});
+			SC.pagedata.startPageDataLoop(function (version, onSuccess, onFailure) {
+				return SC.service.GetAchievementDataForLoggedOnUserAsync(version, function (result) {
+					console.log(result);
+				});
 			});
+
 
 			break;
 	}
