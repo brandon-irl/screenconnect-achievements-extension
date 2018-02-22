@@ -47,7 +47,7 @@ public class Service : WebServiceBase
 		return this.achievementsProvider.GetUsers();
 	}
 
-	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)	// TODO call this from JS
+	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)  // TODO call this from JS
 	{
 		var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
 		return new
@@ -189,54 +189,54 @@ public class Service : WebServiceBase
 	{
 		protected abstract string xmlFileName { get; }
 
-		protected T TryReadObjectXml<T>()
+		protected TObject TryReadObjectXml<TObject>()
 		{
-			return TryReadObjectXml<T>((_ => true));
+			return TryReadObjectXml<TObject>((_ => true));
 		}
 
-		protected T TryReadObjectXml<T>(ScreenConnect.Func<T, bool> additionalValidator)
+		protected TObject TryReadObjectXml<TObject>(ScreenConnect.Func<TObject, bool> additionalValidator)
 		{
-			var objectName = typeof(T).Name;
+			var objectName = typeof(TObject).Name;
 			try
 			{
 				var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
-				return FromXElement<T>(xdoc.Descendants(typeof(T).Name)
-					.Where(_ => additionalValidator(FromXElement<T>(_)))        // TODO: find a way to only call FromXElement once
+				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
+					.Where(_ => additionalValidator(FromXElement<TObject>(_)))        // TODO: find a way to only call FromXElement once
 					.FirstOrDefault());
 			}
 			catch (FileNotFoundException)
 			{
 				EnsureXmlExists();
 			}
-			return default(T);
+			return default(TObject);
 		}
 
-		/// <typeparam name="T">Type of object to be written</typeparam>
-		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <typeparam name="TObject">Type of object to be written</typeparam>
+		/// <typeparam name="KParent">Type of parent of object to be written</typeparam>
 		/// <param name="obj">Object to be written</param>
-		protected void WriteObjectXml<T, K>(T obj)
+		protected void WriteObjectXml<TObject, KParent>(TObject obj)
 		{
-			WriteObjectXml<T, K>(obj, (_ => true));
+			WriteObjectXml<TObject, KParent>(obj, (_ => true));
 		}
 
-		/// <typeparam name="T">Type of object to be written</typeparam>
-		/// <typeparam name="K">Type of parent of object to be written</typeparam>
+		/// <typeparam name="TObject">Type of object to be written</typeparam>
+		/// <typeparam name="KParent">Type of parent of object to be written</typeparam>
 		/// <param name="obj">Object to be written</param>
 		/// <param name="parentValidator">Custom function for validating parent object</param>
-		protected void WriteObjectXml<T, K>(T obj, ScreenConnect.Func<K, bool> parentValidator)
+		protected void WriteObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
 			try
 			{
 				EditXml((xdoc) =>
-				{
-					var parentElement = xdoc.Descendants(typeof(K).Name)
-							.Where(_ => parentValidator(FromXElement<K>(_)))
-							.FirstOrDefault();
-					if (parentElement != null)
-						parentElement.Add(ToXElement<T>(obj));
-					else
-						throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(K).Name));
-				}
+					{
+						var parentElement = xdoc.Descendants(typeof(KParent).Name)
+								.Where(_ => parentValidator(FromXElement<KParent>(_)))
+								.FirstOrDefault();
+						if (parentElement != null)
+							parentElement.Add(ToXElement<TObject>(obj));
+						else
+							throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(KParent).Name));
+					}
 				);
 			}
 			catch (FileNotFoundException)
@@ -245,14 +245,14 @@ public class Service : WebServiceBase
 			}
 		}
 
-		protected void UpdateObjectXml<T>(T newObj, ScreenConnect.Func<T, bool> existingObjectValidator)
+		protected void UpdateObjectXml<TObject>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator)
 		{
 			try
 			{
-				EditXml((xdoc) => xdoc.Descendants(typeof(T).Name)
-									.Where(_ => existingObjectValidator(FromXElement<T>(_)))
+				EditXml((xdoc) => xdoc.Descendants(typeof(TObject).Name)
+									.Where(_ => existingObjectValidator(FromXElement<TObject>(_)))
 									.FirstOrDefault()
-									.SafeDo(_ => _.ReplaceWith(ToXElement<T>(newObj)))
+									.SafeDo(_ => _.ReplaceWith(ToXElement<TObject>(newObj)))
 				);
 			}
 			catch (FileNotFoundException)
@@ -261,37 +261,37 @@ public class Service : WebServiceBase
 			}
 		}
 
-		protected void WriteOrUpdateObjectXml<T, K>(T obj, ScreenConnect.Func<T, bool> objectValidator, ScreenConnect.Func<K, bool> parentValidator)
+		protected void WriteOrUpdateObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<TObject, bool> objectValidator, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
-			var item = TryReadObjectXml<T>(objectValidator);
+			var item = TryReadObjectXml<TObject>(objectValidator);
 			if (item != null)
-				UpdateObjectXml<T>(obj, objectValidator);
+				UpdateObjectXml<TObject>(obj, objectValidator);
 			else
-				WriteObjectXml<T, K>(obj, parentValidator);
+				WriteObjectXml<TObject, KParent>(obj, parentValidator);
 		}
 
-		protected T Deserialize<T>(XmlReader xmlReader)
+		protected TObject Deserialize<TObject>(XmlReader xmlReader)
 		{
-			var serilalizer = new XmlSerializer(typeof(T));
-			return (T)serilalizer.Deserialize(xmlReader);
+			var serilalizer = new XmlSerializer(typeof(TObject));
+			return (TObject)serilalizer.Deserialize(xmlReader);
 		}
 
-		protected XElement ToXElement<T>(object obj)
+		protected XElement ToXElement<TObject>(object obj)
 		{
 			using (var memoryStream = new MemoryStream())
 			{
 				using (TextWriter streamWriter = new StreamWriter(memoryStream))
 				{
-					var xmlSerializer = new XmlSerializer(typeof(T));
+					var xmlSerializer = new XmlSerializer(typeof(TObject));
 					xmlSerializer.Serialize(streamWriter, obj);
 					return XElement.Parse(Encoding.ASCII.GetString(memoryStream.ToArray()));
 				}
 			}
 		}
 
-		protected T FromXElement<T>(XElement xElement)
+		protected TObject FromXElement<TObject>(XElement xElement)
 		{
-			return Deserialize<T>(xElement.CreateReader());
+			return Deserialize<TObject>(xElement.CreateReader());
 		}
 
 		protected void EditXml(Proc<XDocument> proc)

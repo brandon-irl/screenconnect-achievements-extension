@@ -16,16 +16,20 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 			//		]
 			//	);
 			//});
-			SC.pagedata.startPageDataLoop(function (version, onSuccess, onFailure) {
-				return SC.service.GetAchievementDataForLoggedOnUserAsync(version, function (result) {
+			return SC.service.GetAchievementDataForLoggedOnUserAsync(
+				function (result) {
 					console.log(result);
 				});
-			});
-
 
 			break;
 	}
-});
+}); 
+
+//SC.event.addGlobalHandler(SC.event.PreRender, function () {
+//	SC.pagedata.startPageDataLoop(function (version, onSuccess, onFailure) {
+
+//	});
+//});
 
 SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 	switch (eventArgs.area) {
