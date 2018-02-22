@@ -47,14 +47,19 @@ public class Service : WebServiceBase
 		return this.achievementsProvider.GetUsers();
 	}
 
-	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)  // TODO call this from JS
+	//public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)  // TODO make this work
+	//{
+	//	var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
+	//	return new
+	//	{
+	//		Version = newVersion,
+	//		Achievements = this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
+	//	};
+	//}
+
+	public object GetAchievementDataForLoggedOnUser()
 	{
-		var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
-		return new
-		{
-			Version = newVersion,
-			Achievements = this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
-		};
+		return this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name);
 	}
 
 	public void UpdateAchievementForLoggedOnUser(string achievementTitle, string progress)
@@ -211,32 +216,25 @@ public class Service : WebServiceBase
 			return default(TObject);
 		}
 
-		/// <typeparam name="TObject">Type of object to be written</typeparam>
-		/// <typeparam name="KParent">Type of parent of object to be written</typeparam>
-		/// <param name="obj">Object to be written</param>
 		protected void WriteObjectXml<TObject, KParent>(TObject obj)
 		{
 			WriteObjectXml<TObject, KParent>(obj, (_ => true));
 		}
 
-		/// <typeparam name="TObject">Type of object to be written</typeparam>
-		/// <typeparam name="KParent">Type of parent of object to be written</typeparam>
-		/// <param name="obj">Object to be written</param>
-		/// <param name="parentValidator">Custom function for validating parent object</param>
 		protected void WriteObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
 			try
 			{
 				EditXml((xdoc) =>
-					{
-						var parentElement = xdoc.Descendants(typeof(KParent).Name)
-								.Where(_ => parentValidator(FromXElement<KParent>(_)))
-								.FirstOrDefault();
-						if (parentElement != null)
-							parentElement.Add(ToXElement<TObject>(obj));
-						else
-							throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(KParent).Name));
-					}
+				{
+					var parentElement = xdoc.Descendants(typeof(KParent).Name)
+							.Where(_ => parentValidator(FromXElement<KParent>(_)))
+							.FirstOrDefault();
+					if (parentElement != null)
+						parentElement.Add(ToXElement<TObject>(obj));
+					else
+						throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(KParent).Name));
+				}
 				);
 			}
 			catch (FileNotFoundException)
