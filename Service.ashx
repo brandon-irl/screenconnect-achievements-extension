@@ -47,15 +47,15 @@ public class Service : WebServiceBase
 		return this.achievementsProvider.GetUsers();
 	}
 
-	//public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)  // TODO make this work
-	//{
-	//	var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
-	//	return new
-	//	{
-	//		Version = newVersion,
-	//		Achievements = this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
-	//	};
-	//}
+	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)
+	{
+		var newVersion = await WaitForChangeManager.WaitForChangeAsync(version, null);
+		return new
+		{
+			Version = newVersion,
+			Achievements = this.GetAchievementDataForLoggedOnUser()	//TODO: figure out why this causes some calls to throw a null ref exception: \u003e (Inner Exception #0) System.NullReferenceException: Object reference not set to an instance of an object.\r\n   at ScreenConnect.ExtensionContext.get_Current() in C:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Server\\Extension.cs:line 727\r\n   at Service.XmlProviderBase.TryReadObjectXml[TObject](Func`2 additionalValidator) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 207\r\n   at Service.AchievementsProvider.GetUser(String username) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 101\r\n   at Service.\u003cGetAchievementDataForLoggedOnUserAsync\u003ed__1.MoveNext() in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 53\u003c---\r\n
+		};
+	}
 
 	public object GetAchievementDataForLoggedOnUser()
 	{
@@ -78,11 +78,11 @@ public class Service : WebServiceBase
 	//	*****************************************Helper Stuff*****************************************
 	public class AchievementsProvider : XmlProviderBase        // TODO: polymorphism
 	{
-		protected override string xmlFileName
+		protected override string xmlPath
 		{
 			get
 			{
-				return "Achievements.xml";
+				return ExtensionContext.Current.BasePath + @"\" + "Achievements.xml";
 			}
 		}
 
@@ -192,7 +192,7 @@ public class Service : WebServiceBase
 
 	public abstract class XmlProviderBase
 	{
-		protected abstract string xmlFileName { get; }
+		protected abstract string xmlPath { get; }
 
 		protected TObject TryReadObjectXml<TObject>()
 		{
@@ -204,7 +204,7 @@ public class Service : WebServiceBase
 			var objectName = typeof(TObject).Name;
 			try
 			{
-				var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+				var xdoc = XDocument.Load(xmlPath);
 				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
 					.Where(_ => additionalValidator(FromXElement<TObject>(_)))        // TODO: find a way to only call FromXElement once
 					.FirstOrDefault());
@@ -295,9 +295,9 @@ public class Service : WebServiceBase
 		protected void EditXml(Proc<XDocument> proc)
 		{
 
-			var xdoc = XDocument.Load(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+			var xdoc = XDocument.Load(xmlPath);
 			proc(xdoc);
-			xdoc.Save(ExtensionContext.Current.BasePath + @"\" + xmlFileName);
+			xdoc.Save(xmlPath);
 		}
 		protected abstract void EnsureXmlExists();
 	}
