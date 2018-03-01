@@ -6,14 +6,39 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 			//	null
 			//);
 
-			SC.service.GetAchievementDataForLoggedOnUser(function (result) {
-				SC.dialog.showModalDialog(
-					'Prompt',
-					SC.res['Achievements.AchievementText'],
-					[
-						SC.dialog.createTitlePanel(SC.res['Achievements.AchievementText']),
-						SC.ui.createElement('p', JSON.stringify(result))
-					]
+			SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
+
+			SC.service.GetAchievementDefinitions(function (result) {
+				var achievementsPanel = $div({ className: 'AchievementsPanel' },
+					result.Definition.map(
+						function (def) {
+							return $div({ className: 'Definition' },
+								[
+									$p(def.Title),
+									$p(def.Description),
+									$img({src: SC.ui.createDataUri(def.Image)})
+								]
+							);
+						}
+					)
+				);
+
+				SC.dialog.showModalButtonDialog(
+					"Achievements",	// subClassName
+					SC.res['Achievements.AchievementText'],	// title
+					"ButtonText",	// buttonText
+					"Close",		// buttonCommandName
+					function (container) {	// contentBuilderProc
+						SC.ui.setContents(
+							container,
+							[
+								SC.ui.createElement('p', JSON.stringify(result)),
+								achievementsPanel
+							]
+						);
+					},
+					null,	// onExecuteCommandProc
+					null	//onQueryCommandButtonStateProc
 				);
 			});
 
@@ -21,7 +46,7 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 	}
 });
 
-SC.event.addGlobalHandler(SC.event.PreRender, function () {
+SC.event.addGlobalHandler(SC.event.PostRender, function () {
 	var version = 0;
 	var pendingRequest = null;
 	var proc = function (version) {
