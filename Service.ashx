@@ -12,6 +12,17 @@ using System.Xml.Linq;
 using System.Xml.Serialization;
 using ScreenConnect;
 
+public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
+{
+	public Proc GetDeferredActionIfApplicable(SessionEventTriggerEvent sessionEventTriggerEvent)
+	{
+		if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.CreatedSession)
+			Console.WriteLine("Test");
+
+		return null;
+	}
+}
+
 public class Service : WebServiceBase
 {
 	AchievementsProvider achievementsProvider;
@@ -138,11 +149,14 @@ public class Service : WebServiceBase
 			if (definition == null)
 				throw new ArgumentException(string.Format("Achievement '{0}' does not exist", achievement.Title));
 
-			achievement.Achieved = achievement.Progress == definition.Goal;		//TODO: this isn't really going to work the way we want it to for most achievements. Need a way to tell this method what operator to use
+			achievement.Achieved = achievement.Progress == definition.Goal;     //TODO: this isn't really going to work the way we want it to for most achievements. Need a way to tell this method what operator to use
 		}
 
 		private User EnsureUserExistsInXml(string username)
 		{
+			if (string.IsNullOrWhiteSpace(username))
+				throw new ArgumentNullException("username");
+
 			var user = new User { Name = username };
 			WriteObjectXml<User, Users>(user);
 			return GetUser(username);
@@ -182,6 +196,8 @@ public class Service : WebServiceBase
 			public string Goal;
 			[XmlAttributeAttribute()]
 			public string Image;
+			[XmlAttributeAttribute()]
+			public string EventFilter;
 		}
 
 		[System.SerializableAttribute()]
