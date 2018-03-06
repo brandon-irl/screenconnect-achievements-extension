@@ -1,51 +1,4 @@
-SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
-	switch (eventArgs.commandName) {
-		case 'viewAchievements':
-			//SC.dialog.showModalPage(SC.res['Achievements.AchievementText'],
-			//	'Achievements.aspx',
-			//	null
-			//);
-
-			SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
-
-			SC.service.GetAchievementDefinitions(function (result) {
-				var achievementsPanel = $div({ className: 'AchievementsPanel' },
-					result.Definition.map(
-						function (def) {
-							return $div({ className: 'Definition' },
-								[
-									$p(def.Title),
-									$p(def.Description),
-									$img({src: SC.ui.createDataUri(def.Image)})
-								]
-							);
-						}
-					)
-				);
-
-				SC.dialog.showModalButtonDialog(
-					"Achievements",	// subClassName
-					SC.res['Achievements.AchievementText'],	// title
-					"ButtonText",	// buttonText
-					"Close",		// buttonCommandName
-					function (container) {	// contentBuilderProc
-						SC.ui.setContents(
-							container,
-							[
-								SC.ui.createElement('p', JSON.stringify(result)),
-								achievementsPanel
-							]
-						);
-					},
-					null,	// onExecuteCommandProc
-					null	//onQueryCommandButtonStateProc
-				);
-			});
-
-			break;
-	}
-});
-
+// Polls for the User Achievement data
 SC.event.addGlobalHandler(SC.event.PostRender, function () {
 	var version = 0;
 	var pendingRequest = null;
@@ -59,7 +12,10 @@ SC.event.addGlobalHandler(SC.event.PostRender, function () {
 				version,
 				function (result) {
 					version = result.Version;
-					console.log(result);
+					console.log("AchievementDataForLoggedOnUser: " + JSON.stringify(result));
+
+					window.userAchievementData = result;
+
 					proc(version);
 				},
 				function (error) {
@@ -80,15 +36,66 @@ SC.event.addGlobalHandler(SC.event.PostRender, function () {
 			pendingRequest.abort();
 			pendingRequest = null;
 		}
+		proc(version);
 	});
 
 	proc(version);
 });
 
+// Adds "Achievements" button to the Extras menu
 SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 	switch (eventArgs.area) {
 		case 'ExtrasPopoutPanel':
-			eventArgs.buttonDefinitions.push({ commandName: 'viewAchievements', text: SC.res['Achievements.AchievementText'], className: 'AlwaysOverflow' });
+			eventArgs.buttonDefinitions.push({ commandName: 'ViewAchievements', text: SC.res['Achievements.AchievementText'], className: 'AlwaysOverflow' });
+			break;
+	}
+});
+
+// Handles "ViewAchievements" command and show Achievements modal
+SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
+	switch (eventArgs.commandName) {
+		case 'ViewAchievements':
+			SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
+
+			SC.service.GetAchievementDefinitions(function (result) {
+				console.log("AchievementDefinitions: " + JSON.stringify(result));
+
+				var achievementsPanel = $div({ id: 'AchievementsPanel' },
+					result.Definition.map(function (def) {
+						var userAchievement = window.userAchievementData.Achievements.UserAchievement ?
+							window.userAchievementData.Achievements.UserAchievement.filter(function (ach) { return ach.Title === def.Title; })[0] :
+							null;
+						var defPanel = $div({ id: 'DefinitionPanel' },
+							[
+								$p(def.Title),
+								$p(def.Description),
+								$img({ className: 'trophyImage', src: SC.ui.createDataUri(def.Image) })
+							]
+						);
+
+						SC.css.ensureClass(defPanel, 'HasAchieved', userAchievement ? userAchievement.Achieved : false);
+						return defPanel;
+					})
+				);
+
+				SC.dialog.showModalButtonDialog(
+					"ViewAchievements",
+					SC.res['Achievements.ViewAchievementsTitle'],
+					SC.res['Achievements.ViewAchievementsButtonText'],
+					"Close",		// buttonCommandName
+					function (container) {	// contentBuilderProc
+						SC.ui.setContents(container,
+							[
+								achievementsPanel
+							]
+						);
+					},
+					null,	// onExecuteCommandProc
+					null	//onQueryCommandButtonStateProc
+				);
+
+			});
+
 			break;
 	}
 });

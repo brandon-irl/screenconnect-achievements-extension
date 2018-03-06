@@ -7,7 +7,6 @@
 	<Components>
 		<ClientScriptInitializer SourceFile="Initializer.js" />
 		<WebServiceReference SourceFile="Service.ashx" />
-		<!--<WebServiceReference SourceFile="Achievements.aspx" />-->
 		<SessionEventTriggerDefinition SourceFile="SessionEventTrigger.xml" />
 		<WebResourcesDefinition SourceFile="Web.en-US.resx" />
 	</Components>

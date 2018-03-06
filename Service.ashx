@@ -62,21 +62,32 @@ public class Service : WebServiceBase
 		return this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name);
 	}
 
-	public void UpdateAchievementForLoggedOnUser(string achievementTitle, string progress)
+	public void UpdateAchievementForLoggedOnUser(string key, string achievementTitle, string progress)
 	{
-		var definition = this.achievementsProvider.GetDefinition(achievementTitle);
-		if (definition == null)
-			throw new ArgumentException(string.Format("Achievement '{0}' does not exist", achievementTitle));
+		this.UpdateAchievementForUser(key, achievementTitle, progress, HttpContext.Current.User.Identity.Name);
+	}
+
+	public void UpdateAchievementForUser(string key, string achievementTitle, string progress, string username)
+	{
+		VerifyKey(key);
+
+		if (string.IsNullOrWhiteSpace(username))
+			throw new ArgumentNullException("username");
 
 		this.achievementsProvider.UpdateUserAchievement(
 			new AchievementsProvider.UserAchievement { Title = achievementTitle, Progress = progress },
-			this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name)
+			this.achievementsProvider.GetUser(username)
 		);
 	}
 
+	private void VerifyKey(string key)
+	{
+		if (key != "wXJSJ95g4Q2CZChNCW98")
+			throw new HttpException(403, "Not allowed to set achievements yourself");
+	}
 
 	//	*****************************************Helper Stuff*****************************************
-	public class AchievementsProvider : XmlProviderBase        // TODO: polymorphism
+	public class AchievementsProvider : XmlProviderBase
 	{
 		protected override string xmlPath
 		{
@@ -113,11 +124,21 @@ public class Service : WebServiceBase
 
 		public void UpdateUserAchievement(UserAchievement achievement, User user)
 		{
+			CheckAchievementProgressAgainstDefinition(achievement);
 			WriteOrUpdateObjectXml<UserAchievement, User>(
 				achievement,
 				(_ => _.Title == achievement.Title),
 				(_ => _.Name == user.Name)
 			);
+		}
+
+		private void CheckAchievementProgressAgainstDefinition(UserAchievement achievement)
+		{
+			var definition = this.GetDefinition(achievement.Title);
+			if (definition == null)
+				throw new ArgumentException(string.Format("Achievement '{0}' does not exist", achievement.Title));
+
+			achievement.Achieved = achievement.Progress == definition.Goal;		//TODO: this isn't really going to work the way we want it to for most achievements. Need a way to tell this method what operator to use
 		}
 
 		private User EnsureUserExistsInXml(string username)
@@ -189,6 +210,8 @@ public class Service : WebServiceBase
 			public string Title;
 			[XmlAttributeAttribute()]
 			public string Progress;
+			[XmlAttributeAttribute()]
+			public bool Achieved;
 		}
 	}
 
@@ -214,6 +237,10 @@ public class Service : WebServiceBase
 			catch (FileNotFoundException)
 			{
 				EnsureXmlExists();
+			}
+			catch (Exception ex)
+			{
+				// TODO: something
 			}
 			return default(TObject);
 		}
@@ -243,6 +270,10 @@ public class Service : WebServiceBase
 			{
 				EnsureXmlExists();
 			}
+			catch (Exception ex)
+			{
+				// TODO: something
+			}
 		}
 
 		protected void UpdateObjectXml<TObject>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator)
@@ -258,6 +289,10 @@ public class Service : WebServiceBase
 			catch (FileNotFoundException)
 			{
 				EnsureXmlExists();
+			}
+			catch (Exception ex)
+			{
+				// TODO: something
 			}
 		}
 

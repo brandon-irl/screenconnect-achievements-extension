@@ -1,7 +1,32 @@
-﻿.AchievementsPanel {
-	background-color: aliceblue;
+﻿.ModalDialog.ViewAchievements > * {
+	width: 100%;
+}
+#AchievementsPanel {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	grid-gap: 10px;
+	grid-auto-rows: minmax(100px, auto);
+}
+#DefinitionPanel {
+	border: 2px dashed rgb(167, 173, 183);
+	border-radius: 5px;
+	padding: 1em;
+	color: #d9480f;
 }
 
-.Definition {
-	padding: 10px;
+	#DefinitionPanel.HasAchieved {
+		border: 2px solid rgb(83, 186, 20);
+		background-color: rgba(83, 186, 20, .8);
+	}
+
+#DefinitionPanel img{
+	height: 100px;
+	width: 100px;
+	display: none;
+}
+	#DefinitionPanel.HasAchieved img{
+		display: block;
+	}
+#DefinitionPanel p{
+	font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
 }

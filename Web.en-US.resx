@@ -15,4 +15,10 @@
 	<data name="Achievements.AchievementText" xml:space="preserve">
 		<value>Achievements</value>
 	</data>
+	<data name="Achievements.ViewAchievementsTitle">
+		<value>My Achievements</value>
+	</data>
+	<data name="Achievements.ViewAchievementsButtonText">
+		<value>Close</value>
+	</data>
 </root>
