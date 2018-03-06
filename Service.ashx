@@ -12,17 +12,6 @@ using System.Xml.Linq;
 using System.Xml.Serialization;
 using ScreenConnect;
 
-public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
-{
-	public Proc GetDeferredActionIfApplicable(SessionEventTriggerEvent sessionEventTriggerEvent)
-	{
-		if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.CreatedSession)
-			Console.WriteLine("Test");
-
-		return null;
-	}
-}
-
 public class Service : WebServiceBase
 {
 	AchievementsProvider achievementsProvider;
@@ -110,17 +99,17 @@ public class Service : WebServiceBase
 
 		public Definition GetDefinition(string definitionTitle)
 		{
-			return TryReadObjectXml<Definition>((_ => _.Title == definitionTitle));
+			return TryReadObjectXml<Definition,Definitions>((_ => _.Title == definitionTitle));
 		}
 
 		public Definitions GetDefinitions()
 		{
-			return TryReadObjectXml<Definitions>();
+			return TryReadObjectXml<Definitions, Achievements>();
 		}
 
 		public User GetUser(string username)
 		{
-			var user = TryReadObjectXml<User>((_ => _.Name == username));
+			var user = TryReadObjectXml<User, Users>((_ => _.Name == username));
 			if (user == null)
 			{
 				user = EnsureUserExistsInXml(username);
@@ -130,7 +119,7 @@ public class Service : WebServiceBase
 
 		public Users GetUsers()
 		{
-			return TryReadObjectXml<Users>();
+			return TryReadObjectXml<Users, Achievements>();
 		}
 
 		public void UpdateUserAchievement(UserAchievement achievement, User user)
@@ -235,12 +224,17 @@ public class Service : WebServiceBase
 	{
 		protected abstract string xmlPath { get; }
 
-		protected TObject TryReadObjectXml<TObject>()
+		protected TObject TryReadObjectXml<TObject, KParent>()
 		{
-			return TryReadObjectXml<TObject>((_ => true));
+			return TryReadObjectXml<TObject, KParent>((_ => true), (_ => true));
 		}
 
-		protected TObject TryReadObjectXml<TObject>(ScreenConnect.Func<TObject, bool> additionalValidator)
+		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator)
+		{
+			return TryReadObjectXml<TObject, KParent>(additionalValidator, (_ => true));
+		}
+
+		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
 			var objectName = typeof(TObject).Name;
 			try
@@ -248,6 +242,7 @@ public class Service : WebServiceBase
 				var xdoc = XDocument.Load(xmlPath);
 				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
 					.Where(_ => additionalValidator(FromXElement<TObject>(_)))        // TODO: find a way to only call FromXElement once
+					.Where(_ => parentValidator(FromXElement<KParent>(_.Parent)))
 					.FirstOrDefault());
 			}
 			catch (FileNotFoundException)
@@ -292,12 +287,13 @@ public class Service : WebServiceBase
 			}
 		}
 
-		protected void UpdateObjectXml<TObject>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator)
+		protected void UpdateObjectXml<TObject, KParent>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
 			try
 			{
 				EditXml((xdoc) => xdoc.Descendants(typeof(TObject).Name)
 									.Where(_ => existingObjectValidator(FromXElement<TObject>(_)))
+									.Where(_ => parentValidator(FromXElement<KParent>(_.Parent)))
 									.FirstOrDefault()
 									.SafeDo(_ => _.ReplaceWith(ToXElement<TObject>(newObj)))
 				);
@@ -314,9 +310,9 @@ public class Service : WebServiceBase
 
 		protected void WriteOrUpdateObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<TObject, bool> objectValidator, ScreenConnect.Func<KParent, bool> parentValidator)
 		{
-			var item = TryReadObjectXml<TObject>(objectValidator);
+			var item = TryReadObjectXml<TObject, KParent>(objectValidator, parentValidator);
 			if (item != null)
-				UpdateObjectXml<TObject>(obj, objectValidator);
+				UpdateObjectXml<TObject, KParent>(obj, objectValidator, parentValidator);
 			else
 				WriteObjectXml<TObject, KParent>(obj, parentValidator);
 		}
