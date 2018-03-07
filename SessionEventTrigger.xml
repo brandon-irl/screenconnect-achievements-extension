@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<SessionEventTriggers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <SessionEventTrigger Name="Occurs when a session is created" EventFilter="Event.EventType = 'CreatedSession'">
-    <Actions>
-      <TriggerAction xsi:type="HttpTriggerAction" Uri="http://localhost:8040/App_Extensions/90d13a55-d971-4a00-8d9b-e6edb7262b2f/Service.ashx/UpdateAchievementForUser/wXJSJ95g4Q2CZChNCW98/Baby+Steps/1/{Session.Host}" HttpMethod="POST" />
-    </Actions>
-  </SessionEventTrigger>
-</SessionEventTriggers>

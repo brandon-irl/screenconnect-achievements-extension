@@ -15,7 +15,7 @@ using ScreenConnect;
 public class Service : WebServiceBase
 {
 	AchievementsProvider achievementsProvider;
-
+	const string validationKey = "wXJSJ95g4Q2CZChNCW98";
 	public Service()
 	{
 		this.achievementsProvider = new AchievementsProvider();
@@ -82,7 +82,7 @@ public class Service : WebServiceBase
 
 	private void VerifyKey(string key)
 	{
-		if (key != "wXJSJ95g4Q2CZChNCW98")
+		if (key != validationKey)
 			throw new HttpException(403, "Not allowed to set achievements yourself");
 	}
 
@@ -99,7 +99,7 @@ public class Service : WebServiceBase
 
 		public Definition GetDefinition(string definitionTitle)
 		{
-			return TryReadObjectXml<Definition,Definitions>((_ => _.Title == definitionTitle));
+			return TryReadObjectXml<Definition, Definitions>((_ => _.Title == definitionTitle));
 		}
 
 		public Definitions GetDefinitions()

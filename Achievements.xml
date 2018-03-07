@@ -8,8 +8,5 @@
     <User xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="Administrator">
       <UserAchievement xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Title="Baby Steps" Progress="1" Achieved="true" />
     </User>
-    <User xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="butthead">
-      <UserAchievement xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Title="Baby Steps" Progress="1" Achieved="true" />
-    </User>
   </Users>
 </Achievements>

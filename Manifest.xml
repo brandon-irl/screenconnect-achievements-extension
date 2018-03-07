@@ -7,7 +7,7 @@
 	<Components>
 		<ClientScriptInitializer SourceFile="Initializer.js" />
 		<WebServiceReference SourceFile="Service.ashx" />
-		<SessionEventTriggerDefinition SourceFile="SessionEventTrigger.xml" />
+		<DynamicSessionEventTriggerDefinition SourceFile="SessionEventTrigger.cs" />
 		<WebResourcesDefinition SourceFile="Web.en-US.resx" />
 	</Components>
 	<Settings>
