@@ -13,8 +13,12 @@
 	padding: 1em;
 	color: #d9480f;
 }
+	#DefinitionPanel.HiddenUntilAchieved{
+		display:none;
+	}
 
 	#DefinitionPanel.HasAchieved {
+		display:inherit;
 		border: 2px solid rgb(83, 186, 20);
 		background-color: rgba(83, 186, 20, .8);
 	}

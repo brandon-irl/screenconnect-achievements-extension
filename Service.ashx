@@ -187,6 +187,8 @@ public class Service : WebServiceBase
 			public string Image;
 			[XmlAttributeAttribute()]
 			public string EventFilter;
+			[XmlAttributeAttribute()]
+			public bool HiddenUntilAchieved;
 		}
 
 		[System.SerializableAttribute()]
