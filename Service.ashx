@@ -16,25 +16,10 @@ public class Service : WebServiceBase
 {
 	AchievementsProvider achievementsProvider;
 	const string validationKey = "wXJSJ95g4Q2CZChNCW98";
+
 	public Service()
 	{
 		this.achievementsProvider = new AchievementsProvider();
-	}
-
-	// This sample just sends a message to a session when a host connects. (This can be used as an ad hoc way to make the chat window appear.)
-	public void SendMessage(String key, Guid sessionID)
-	{
-		// This method can potentially be called by anyone (though without a valid session id they'd just get an error), so the trigger passes a simple hardcoded key that's checked here.
-		// It should of course be changed for your extension (I just used a password generator to make this one).
-		if (key != "hipoDHsIoTPTSbPPnSCR")
-			return;
-
-		SessionManagerPool.Demux.AddSessionEvent(sessionID, new SessionEvent
-		{
-			Host = ExtensionContext.Current.GetSettingValue("Host"),
-			EventType = SessionEventType.QueuedMessage,
-			Data = ExtensionContext.Current.GetSettingValue("Message"),
-		});
 	}
 
 	public object GetAchievementDefinitions()
