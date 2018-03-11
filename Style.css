@@ -32,10 +32,6 @@
 	margin: 15px 0px 15px 0px;
 }
 
-#DefinitionPanel.HiddenUntilAchieved {
-	display: none;
-}
-
 #DefinitionPanel.HasAchieved {
 	display: inherit;
 	border: 2px solid #549C05;

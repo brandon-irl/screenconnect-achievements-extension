@@ -1,3 +1,7 @@
+SC.event.addGlobalHandler(SC.event.PreRender, function () {
+	
+});
+
 // Polls for the User Achievement data
 SC.event.addGlobalHandler(SC.event.PostRender, function () {
 	var version = 0;
@@ -75,7 +79,7 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 							]
 						);
 
-						SC.css.ensureClass(defPanel, 'HiddenUntilAchieved', def.HiddenUntilAchieved)
+						SC.ui.setVisible(defPanel, userAchievement.HiddenUntilAchieved);
 						SC.css.ensureClass(defPanel, 'HasAchieved', userAchievement ? userAchievement.Achieved : false);
 						return defPanel;
 					})
