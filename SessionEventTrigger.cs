@@ -18,16 +18,44 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 	public Proc GetDeferredActionIfApplicable(SessionEventTriggerEvent sessionEventTriggerEvent)
 	{
 		if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.CreatedSession)
+		{
 			SendRequestToService("UpdateAchievementForUser", key, "Baby Steps", "1", sessionEventTriggerEvent.SessionEvent.Host);
+		}
+		else if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.Connected)
+		{
+			if(sessionEventTriggerEvent.SessionConnection.ProcessType == ProcessType.Host)
+			{
+				int threeMusketeersProgress;
+				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Three Musketeers", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out threeMusketeersProgress))
+				{
+					var newProgress = threeMusketeersProgress;
+					switch (sessionEventTriggerEvent.Session.SessionType)
+					{
+						case SessionType.Access:
+							newProgress |= 1;
+							break;
+						case SessionType.Meeting:
+							newProgress |= 2;
+							break;
+						case SessionType.Support:
+							newProgress |= 4;
+							break;
+					}
+					if (newProgress != threeMusketeersProgress)
+						SendRequestToService("UpdateAchievementForUser", key, "Three Musketeers", newProgress.ToString(), sessionEventTriggerEvent.SessionEvent.Host);
+				}
+			}
+		}
 
 		return null;
 	}
 
-	void SendRequestToService(params string[] args)
+	string SendRequestToService(params string[] args)
 	{
 		using (var webClient = new ScreenConnect.WebClient())
 		{
 			var request = webClient.DownloadString(GetExtensionServiceUri(args));
+			return request == "null"? null : request.Trim(' ', '\t', '\n', '\v', '\f', '\r', '"');
 		}
 	}
 

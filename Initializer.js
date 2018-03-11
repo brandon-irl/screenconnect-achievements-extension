@@ -74,7 +74,6 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 						);
 
 						SC.css.ensureClass(defPanel, 'HiddenUntilAchieved', def.HiddenUntilAchieved)
-
 						SC.css.ensureClass(defPanel, 'HasAchieved', userAchievement ? userAchievement.Achieved : false);
 						return defPanel;
 					})
