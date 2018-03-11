@@ -26,7 +26,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 			if(sessionEventTriggerEvent.SessionConnection.ProcessType == ProcessType.Host)
 			{
 				int threeMusketeersProgress;
-				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Three Musketeers", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out threeMusketeersProgress))
+				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Hat Trick", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out threeMusketeersProgress))
 				{
 					var newProgress = threeMusketeersProgress;
 					switch (sessionEventTriggerEvent.Session.SessionType)
@@ -42,7 +42,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 							break;
 					}
 					if (newProgress != threeMusketeersProgress)
-						SendRequestToService("UpdateAchievementForUser", key, "Three Musketeers", newProgress.ToString(), sessionEventTriggerEvent.SessionEvent.Host);
+						SendRequestToService("UpdateAchievementForUser", key, "Hat Trick", newProgress.ToString(), sessionEventTriggerEvent.SessionEvent.Host);
 				}
 			}
 		}

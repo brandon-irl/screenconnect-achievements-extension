@@ -1,5 +1,17 @@
+var myFunction = function myFunction() {
+	// Get the snackbar DIV
+	var x = document.getElementById("SnackBar")
+
+	// Add the "show" class to DIV
+	x.className = "show";
+
+	// After 3 seconds, remove the show class from DIV
+	setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
+}
+
 SC.event.addGlobalHandler(SC.event.PreRender, function () {
-	
+	var snackBar = $div({ id: 'SnackBar' });
+	$('.OuterPanels').appendChild(snackBar);
 });
 
 // Polls for the User Achievement data
@@ -51,6 +63,7 @@ SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 	switch (eventArgs.area) {
 		case 'ExtrasPopoutPanel':
 			eventArgs.buttonDefinitions.push({ commandName: 'ViewAchievements', text: SC.res['Achievements.AchievementText'], className: 'AlwaysOverflow' });
+			eventArgs.buttonDefinitions.push({ commandName: 'Test', text: 'TEST', className: 'AlwaysOverflow' });
 			break;
 	}
 });
@@ -58,6 +71,9 @@ SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 // Handles "ViewAchievements" command and show Achievements modal
 SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 	switch (eventArgs.commandName) {
+		case 'Test':
+			myFunction();
+			break;
 		case 'ViewAchievements':
 			SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
 
@@ -79,7 +95,7 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 							]
 						);
 
-						SC.ui.setVisible(defPanel, userAchievement.HiddenUntilAchieved);
+						SC.ui.setVisible(defPanel, !def.HiddenUntilAchieved);
 						SC.css.ensureClass(defPanel, 'HasAchieved', userAchievement ? userAchievement.Achieved : false);
 						return defPanel;
 					})
