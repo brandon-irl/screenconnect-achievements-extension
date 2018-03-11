@@ -21,4 +21,7 @@
 	<data name="Achievements.ViewAchievementsButtonText">
 		<value>Close</value>
 	</data>
+	<data name="Achievements.NewAchievementSnackbarMessage">
+		<value>You have a new achievement!</value>
+	</data>
 </root>

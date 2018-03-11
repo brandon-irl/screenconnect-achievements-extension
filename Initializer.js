@@ -1,18 +1,16 @@
-var myFunction = function myFunction() {
-	// Get the snackbar DIV
-	var x = document.getElementById("SnackBar")
-
-	// Add the "show" class to DIV
-	x.className = "show";
-
-	// After 3 seconds, remove the show class from DIV
-	setTimeout(function () { x.className = x.className.replace("show", ""); }, 3000);
-}
-
+// Adds the "SnackBar" div to the page
 SC.event.addGlobalHandler(SC.event.PreRender, function () {
-	var snackBar = $div({ id: 'SnackBar' });
-	$('.OuterPanels').appendChild(snackBar);
+	SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
+
+	$('.OuterPanel').appendChild($div({ id: 'SnackBar' }));
 });
+
+var showSnackBarWithMessage = function (message) {
+	var sb = $('#SnackBar')
+	SC.ui.setInnerText(sb, message);
+	sb.className = "show";
+	setTimeout(function () { sb.className = sb.className.replace("show", ""); }, 3000);;
+}
 
 // Polls for the User Achievement data
 SC.event.addGlobalHandler(SC.event.PostRender, function () {
@@ -29,6 +27,9 @@ SC.event.addGlobalHandler(SC.event.PostRender, function () {
 				function (result) {
 					version = result.Version;
 					console.log("AchievementDataForLoggedOnUser: " + JSON.stringify(result));
+					
+					if (window.userAchievementData && window.userAchievementData != result)
+						showSnackBarWithMessage(SC.res['Achievements.NewAchievementSnackbarMessage']);
 
 					window.userAchievementData = result;
 
@@ -63,7 +64,7 @@ SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 	switch (eventArgs.area) {
 		case 'ExtrasPopoutPanel':
 			eventArgs.buttonDefinitions.push({ commandName: 'ViewAchievements', text: SC.res['Achievements.AchievementText'], className: 'AlwaysOverflow' });
-			eventArgs.buttonDefinitions.push({ commandName: 'Test', text: 'TEST', className: 'AlwaysOverflow' });
+			// eventArgs.buttonDefinitions.push({ commandName: 'TestAchievementMessage', text: 'Test Achievement Message', className: 'AlwaysOverflow' });
 			break;
 	}
 });
@@ -71,12 +72,10 @@ SC.event.addGlobalHandler(SC.event.QueryCommandButtons, function (eventArgs) {
 // Handles "ViewAchievements" command and show Achievements modal
 SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 	switch (eventArgs.commandName) {
-		case 'Test':
-			myFunction();
+		case 'TestAchievementMessage':
+			showSnackBarWithMessage("This is only a test");
 			break;
 		case 'ViewAchievements':
-			SC.util.includeStyleSheet(extensionContext.baseUrl + 'Style.css');
-
 			SC.service.GetAchievementDefinitions(function (result) {
 				console.log("AchievementDefinitions: " + JSON.stringify(result));
 
