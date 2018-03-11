@@ -6,6 +6,7 @@ using System.IO;
 using System.Web;
 using System.Linq;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
@@ -255,12 +256,14 @@ public class Service : WebServiceBase
 	public abstract class XmlProviderBase
 	{
 		protected abstract string xmlPath { get; }
+		static ReaderWriterLock locker = new ReaderWriterLock();
 
 		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator = null, ScreenConnect.Func<KParent, bool> parentValidator = null)
 		{
 			var objectName = typeof(TObject).Name;
 			try
 			{
+				locker.AcquireReaderLock(int.MaxValue);
 				var xdoc = XDocument.Load(xmlPath);
 				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
 					.Where(_ => additionalValidator != null ? additionalValidator(FromXElement<TObject>(_)) : true)        // TODO: find a way to only call FromXElement once
@@ -274,6 +277,10 @@ public class Service : WebServiceBase
 			catch (Exception ex)
 			{
 				// TODO: something
+			}
+			finally
+			{
+				locker.ReleaseReaderLock();
 			}
 			return default(TObject);
 		}
@@ -360,10 +367,17 @@ public class Service : WebServiceBase
 
 		protected void EditXml(Proc<XDocument> proc)
 		{
-
-			var xdoc = XDocument.Load(xmlPath);
-			proc(xdoc);
-			xdoc.Save(xmlPath);
+			try
+			{
+				locker.AcquireWriterLock(int.MaxValue);
+				var xdoc = XDocument.Load(xmlPath);
+				proc(xdoc);
+				xdoc.Save(xmlPath);
+			}
+			finally
+			{
+				locker.ReleaseWriterLock();
+			}
 		}
 		protected abstract void EnsureXmlExists();
 	}
