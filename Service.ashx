@@ -19,17 +19,17 @@ public class Service : WebServiceBase
 
 	public Service()
 	{
-		this.achievementsProvider = new AchievementsProvider();
+		achievementsProvider = new AchievementsProvider();
 	}
 
 	public object GetAchievementDefinitions()
 	{
-		return this.achievementsProvider.GetDefinitions();
+		return achievementsProvider.GetDefinitions();
 	}
 
 	public object GetUsers()
 	{
-		return this.achievementsProvider.GetUsers();
+		return achievementsProvider.GetUsers();
 	}
 
 	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)
@@ -38,18 +38,35 @@ public class Service : WebServiceBase
 		return new
 		{
 			Version = newVersion,
-			Achievements = this.GetAchievementDataForLoggedOnUser() //TODO: figure out why this causes some calls to throw a null ref exception: \u003e (Inner Exception #0) System.NullReferenceException: Object reference not set to an instance of an object.\r\n   at ScreenConnect.ExtensionContext.get_Current() in C:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Server\\Extension.cs:line 727\r\n   at Service.XmlProviderBase.TryReadObjectXml[TObject](Func`2 additionalValidator) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 207\r\n   at Service.AchievementsProvider.GetUser(String username) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 101\r\n   at Service.\u003cGetAchievementDataForLoggedOnUserAsync\u003ed__1.MoveNext() in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 53\u003c---\r\n
+			Achievements = GetAchievementDataForLoggedOnUser() //TODO: figure out why this causes some calls to throw a null ref exception: \u003e (Inner Exception #0) System.NullReferenceException: Object reference not set to an instance of an object.\r\n   at ScreenConnect.ExtensionContext.get_Current() in C:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Server\\Extension.cs:line 727\r\n   at Service.XmlProviderBase.TryReadObjectXml[TObject](Func`2 additionalValidator) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 207\r\n   at Service.AchievementsProvider.GetUser(String username) in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 101\r\n   at Service.\u003cGetAchievementDataForLoggedOnUserAsync\u003ed__1.MoveNext() in c:\\compile\\ScreenConnect\\ScreenConnectWork\\cwcontrol\\Product\\Site\\App_Extensions\\90d13a55-d971-4a00-8d9b-e6edb7262b2f\\Service.ashx:line 53\u003c---\r\n
 		};
 	}
 
 	public object GetAchievementDataForLoggedOnUser()
 	{
-		return this.achievementsProvider.GetUser(HttpContext.Current.User.Identity.Name);
+		return GetAchievementDataForUser(HttpContext.Current.User.Identity.Name);
+	}
+
+	public object GetAchievementDataForUser(string username)
+	{
+		username.AssertArgumentNonNull();
+
+		return achievementsProvider.GetUser(username);
+	}
+
+	public object GetAchievementProgressForUser(string achievementTitle, string username)
+	{
+		achievementTitle.AssertArgumentNonNull();
+		username.AssertArgumentNonNull();
+
+		return achievementsProvider
+				.GetUserAchievement(achievementTitle, username)
+				.SafeNav(_ => _.Progress);
 	}
 
 	public void UpdateAchievementForLoggedOnUser(string key, string achievementTitle, string progress)
 	{
-		this.UpdateAchievementForUser(key, achievementTitle, progress, HttpContext.Current.User.Identity.Name);
+		UpdateAchievementForUser(key, achievementTitle, progress, HttpContext.Current.User.Identity.Name);
 	}
 
 	public void UpdateAchievementForUser(string key, string achievementTitle, string progress, string username)
@@ -59,9 +76,9 @@ public class Service : WebServiceBase
 		if (string.IsNullOrWhiteSpace(username))
 			throw new ArgumentNullException("username");
 
-		this.achievementsProvider.UpdateUserAchievement(
+		achievementsProvider.UpdateUserAchievement(
 			new AchievementsProvider.UserAchievement { Title = achievementTitle, Progress = progress },
-			this.achievementsProvider.GetUser(username)
+			achievementsProvider.GetUser(username)
 		);
 	}
 
@@ -96,15 +113,27 @@ public class Service : WebServiceBase
 		{
 			var user = TryReadObjectXml<User, Users>((_ => _.Name == username));
 			if (user == null)
-			{
 				user = EnsureUserExistsInXml(username);
-			}
+
 			return user;
 		}
 
 		public Users GetUsers()
 		{
 			return TryReadObjectXml<Users, Achievements>();
+		}
+
+		public UserAchievement GetUserAchievement(string achievementTitle, string username)
+		{
+			var userAchievement = TryReadObjectXml<UserAchievement, User>(
+				(_ => _.Title == achievementTitle),
+				(_ => _.Name == username)
+			);
+
+			if (userAchievement == null)
+				userAchievement = EnsureUserAchievementExistsInXml(achievementTitle, username);
+
+			return userAchievement;
 		}
 
 		public void UpdateUserAchievement(UserAchievement achievement, User user)
@@ -119,20 +148,36 @@ public class Service : WebServiceBase
 
 		private void CheckAchievementProgressAgainstDefinition(UserAchievement achievement)
 		{
-			var definition = this.GetDefinition(achievement.Title);
+			var definition = GetDefinition(achievement.Title);
 			if (definition == null)
 				throw new ArgumentException(string.Format("Achievement '{0}' does not exist", achievement.Title));
 
 			achievement.Achieved = achievement.Progress == definition.Goal;     //TODO: this isn't really going to work the way we want it to for most achievements. Need a way to tell this method what operator to use
 		}
 
+		private UserAchievement EnsureUserAchievementExistsInXml(string achievementTitle, string username)
+		{
+			achievementTitle.AssertArgumentNonNull();
+			username.AssertArgumentNonNull();
+
+			var userAchievement = new UserAchievement() { Title = achievementTitle };
+			WriteOrUpdateObjectXml<UserAchievement, User>(
+				userAchievement,
+				(_ => _.Title == achievementTitle),
+				(_ => _.Name == username)
+			);
+			return userAchievement;
+		}
+
 		private User EnsureUserExistsInXml(string username)
 		{
-			if (string.IsNullOrWhiteSpace(username))
-				throw new ArgumentNullException("username");
+			username.AssertArgumentNonNull();
 
 			var user = new User { Name = username };
-			WriteObjectXml<User, Users>(user);
+			WriteOrUpdateObjectXml<User, Users>(
+				user,
+				(_ => _.Name == username)
+			);
 			return GetUser(username);
 		}
 
@@ -211,25 +256,15 @@ public class Service : WebServiceBase
 	{
 		protected abstract string xmlPath { get; }
 
-		protected TObject TryReadObjectXml<TObject, KParent>()
-		{
-			return TryReadObjectXml<TObject, KParent>((_ => true), (_ => true));
-		}
-
-		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator)
-		{
-			return TryReadObjectXml<TObject, KParent>(additionalValidator, (_ => true));
-		}
-
-		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator, ScreenConnect.Func<KParent, bool> parentValidator)
+		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator = null, ScreenConnect.Func<KParent, bool> parentValidator = null)
 		{
 			var objectName = typeof(TObject).Name;
 			try
 			{
 				var xdoc = XDocument.Load(xmlPath);
 				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
-					.Where(_ => additionalValidator(FromXElement<TObject>(_)))        // TODO: find a way to only call FromXElement once
-					.Where(_ => parentValidator(FromXElement<KParent>(_.Parent)))
+					.Where(_ => additionalValidator != null ? additionalValidator(FromXElement<TObject>(_)) : true)        // TODO: find a way to only call FromXElement once
+					.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_.Parent)) : true)
 					.FirstOrDefault());
 			}
 			catch (FileNotFoundException)
@@ -243,19 +278,14 @@ public class Service : WebServiceBase
 			return default(TObject);
 		}
 
-		protected void WriteObjectXml<TObject, KParent>(TObject obj)
-		{
-			WriteObjectXml<TObject, KParent>(obj, (_ => true));
-		}
-
-		protected void WriteObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<KParent, bool> parentValidator)
+		protected void WriteObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<KParent, bool> parentValidator = null)
 		{
 			try
 			{
 				EditXml((xdoc) =>
 				{
 					var parentElement = xdoc.Descendants(typeof(KParent).Name)
-							.Where(_ => parentValidator(FromXElement<KParent>(_)))
+							.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_)) : true)
 							.FirstOrDefault();
 					if (parentElement != null)
 						parentElement.Add(ToXElement<TObject>(obj));
@@ -274,13 +304,13 @@ public class Service : WebServiceBase
 			}
 		}
 
-		protected void UpdateObjectXml<TObject, KParent>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator, ScreenConnect.Func<KParent, bool> parentValidator)
+		protected void UpdateObjectXml<TObject, KParent>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator, ScreenConnect.Func<KParent, bool> parentValidator = null)
 		{
 			try
 			{
 				EditXml((xdoc) => xdoc.Descendants(typeof(TObject).Name)
 									.Where(_ => existingObjectValidator(FromXElement<TObject>(_)))
-									.Where(_ => parentValidator(FromXElement<KParent>(_.Parent)))
+									.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_.Parent)) : true)
 									.FirstOrDefault()
 									.SafeDo(_ => _.ReplaceWith(ToXElement<TObject>(newObj)))
 				);
@@ -295,7 +325,7 @@ public class Service : WebServiceBase
 			}
 		}
 
-		protected void WriteOrUpdateObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<TObject, bool> objectValidator, ScreenConnect.Func<KParent, bool> parentValidator)
+		protected void WriteOrUpdateObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<TObject, bool> objectValidator, ScreenConnect.Func<KParent, bool> parentValidator = null)
 		{
 			var item = TryReadObjectXml<TObject, KParent>(objectValidator, parentValidator);
 			if (item != null)
