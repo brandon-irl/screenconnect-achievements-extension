@@ -21,14 +21,18 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 		{
 			SendRequestToService("UpdateAchievementForUser", key, "Baby Steps", "1", sessionEventTriggerEvent.SessionEvent.Host);
 		}
+		else if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.QueuedCommand)
+		{
+			SendRequestToService("UpdateAchievementForUser", key, "Make It So", "1", sessionEventTriggerEvent.SessionEvent.Host);
+		}
 		else if (sessionEventTriggerEvent.SessionEvent.EventType == SessionEventType.Connected)
 		{
-			if(sessionEventTriggerEvent.SessionConnection.ProcessType == ProcessType.Host)
+			if (sessionEventTriggerEvent.SessionConnection.ProcessType == ProcessType.Host)
 			{
-				int threeMusketeersProgress;
-				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Hat Trick", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out threeMusketeersProgress))
+				int currentProgress;
+				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Hat Trick", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out currentProgress))
 				{
-					var newProgress = threeMusketeersProgress;
+					var newProgress = currentProgress;
 					switch (sessionEventTriggerEvent.Session.SessionType)
 					{
 						case SessionType.Access:
@@ -41,7 +45,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 							newProgress |= 4;
 							break;
 					}
-					if (newProgress != threeMusketeersProgress)
+					if (newProgress != currentProgress)
 						SendRequestToService("UpdateAchievementForUser", key, "Hat Trick", newProgress.ToString(), sessionEventTriggerEvent.SessionEvent.Host);
 				}
 			}
@@ -55,7 +59,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 		using (var webClient = new ScreenConnect.WebClient())
 		{
 			var request = webClient.DownloadString(GetExtensionServiceUri(args));
-			return request == "null"? null : request.Trim(' ', '\t', '\n', '\v', '\f', '\r', '"');
+			return request == "null" ? null : request.Trim(' ', '\t', '\n', '\v', '\f', '\r', '"');
 		}
 	}
 
