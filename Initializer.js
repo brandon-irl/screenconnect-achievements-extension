@@ -67,9 +67,11 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 							null;
 						var defPanel = $div({ id: 'DefinitionPanel' },
 							[
-								$p(def.Title),
+								def.Title,
 								$p(def.Description),
-								$img({ className: 'trophyImage', src: SC.ui.createDataUri(def.Image) })
+								$div({ className: 'Circle' },
+									[$img({ className: 'trophyImage', src: SC.ui.createDataUri(def.Image) })]
+								)
 							]
 						);
 
