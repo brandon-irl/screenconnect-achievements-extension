@@ -102,7 +102,7 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 
 				SC.dialog.showModalButtonDialog(
 					"ViewAchievements",
-					SC.res['Achievements.ViewAchievementsTitle'],
+					SC.context.userDisplayName === null ? SC.res['Achievements.AchievementText'] : SC.util.formatString(SC.res['Achievements.ViewAchievementsTitle'], SC.context.userDisplayName),
 					SC.res['Achievements.ViewAchievementsButtonText'],
 					"Close",		// buttonCommandName
 					function (container) {	// contentBuilderProc

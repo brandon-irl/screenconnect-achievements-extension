@@ -16,7 +16,7 @@
 		<value>Achievements</value>
 	</data>
 	<data name="Achievements.ViewAchievementsTitle">
-		<value>My Achievements</value>
+		<value>{0}'s Achievements</value>
 	</data>
 	<data name="Achievements.ViewAchievementsButtonText">
 		<value>Close</value>
