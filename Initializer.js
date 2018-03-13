@@ -27,9 +27,10 @@ SC.event.addGlobalHandler(SC.event.PostRender, function () {
 				function (result) {
 					version = result.Version;
 					console.log("AchievementDataForLoggedOnUser: " + JSON.stringify(result));
-					
-					if (window.userAchievementData && window.userAchievementData != result)
-						showSnackBarWithMessage(SC.res['Achievements.NewAchievementSnackbarMessage']);
+
+					// TODO: this doesn't work right
+					//if (window.userAchievementData && window.userAchievementData != result)
+					//	showSnackBarWithMessage(SC.res['Achievements.NewAchievementSnackbarMessage']);
 
 					window.userAchievementData = result;
 

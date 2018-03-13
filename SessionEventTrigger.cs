@@ -30,7 +30,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 			if (sessionEventTriggerEvent.SessionConnection.ProcessType == ProcessType.Host)
 			{
 				int currentProgress;
-				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Hat Trick", sessionEventTriggerEvent.SessionEvent.Host) ?? "0", out currentProgress))
+				if (int.TryParse(SendRequestToService("GetAchievementProgressForUser", "Hat Trick", sessionEventTriggerEvent.SessionConnection.ParticipantName) ?? "0", out currentProgress))
 				{
 					var newProgress = currentProgress;
 					switch (sessionEventTriggerEvent.Session.SessionType)
@@ -46,7 +46,7 @@ public class SessionEventTriggerAccessor : IDynamicSessionEventTrigger
 							break;
 					}
 					if (newProgress != currentProgress)
-						SendRequestToService("UpdateAchievementForUser", key, "Hat Trick", newProgress.ToString(), sessionEventTriggerEvent.SessionEvent.Host);
+						SendRequestToService("UpdateAchievementForUser", key, "Hat Trick", newProgress.ToString(), sessionEventTriggerEvent.SessionConnection.ParticipantName);
 				}
 			}
 		}
