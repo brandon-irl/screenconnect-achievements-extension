@@ -20,17 +20,17 @@ public class Service : WebServiceBase
 
 	public Service()
 	{
-		achievementsProvider = new AchievementsProvider();
+		achievementsProvider = new XmlAchievementsProvider();
 	}
 
 	public object GetAchievementDefinitions()
 	{
-		return achievementsProvider.GetDefinitions();
+		return achievementsProvider.GetAllDefinitions();
 	}
 
 	public object GetUsers()
 	{
-		return achievementsProvider.GetUsers();
+		return achievementsProvider.GetAllUsers();
 	}
 
 	public async Task<object> GetAchievementDataForLoggedOnUserAsync(long version)
@@ -52,7 +52,7 @@ public class Service : WebServiceBase
 	{
 		username.AssertArgumentNonNull();
 
-		return achievementsProvider.GetUser(username);
+		return achievementsProvider.GetUserAchievements(username);
 	}
 
 	public object GetAchievementProgressForUser(string achievementTitle, string username)
@@ -61,7 +61,9 @@ public class Service : WebServiceBase
 		username.AssertArgumentNonNull();
 
 		return achievementsProvider
-				.GetUserAchievement(achievementTitle, username)
+				.GetUserAchievements(username)
+				.Where(_ => _.Title == achievementTitle)
+				.FirstOrDefault()
 				.SafeNav(_ => _.Progress);
 	}
 
@@ -78,8 +80,8 @@ public class Service : WebServiceBase
 			throw new ArgumentNullException("username");
 
 		achievementsProvider.UpdateUserAchievement(
-			new AchievementsProvider.UserAchievement { Title = achievementTitle, Progress = progress },
-			achievementsProvider.GetUser(username)
+			new UserAchievement { Title = achievementTitle, Progress = progress },
+			username
 		);
 	}
 
@@ -90,61 +92,96 @@ public class Service : WebServiceBase
 	}
 
 	//	*****************************************Helper Stuff*****************************************
-	public class AchievementsProvider : XmlProviderBase
+	public abstract class AchievementsProvider
 	{
-		protected override string xmlPath
+		public abstract User[] GetAllUsers();
+		public abstract Definition[] GetAllDefinitions();
+		public abstract UserAchievement[] GetUserAchievements(string username);
+		public abstract void UpdateUserAchievement(UserAchievement achievement, string username);
+	}
+
+	public class XmlAchievementsProvider : AchievementsProvider
+	{
+		static FileInfo GetAchievementsFile()
 		{
-			get
-			{
-				return ExtensionContext.Current.BasePath + @"\" + "Achievements.xml";
-			}
+			var path = ExtensionContext.Current.BasePath + @"\" + "Achievements.xml";
+			return new FileInfo(path);
 		}
 
-		public Definition GetDefinition(string definitionTitle)
+		static Achievements TryLoadAchievements()
 		{
-			return TryReadObjectXml<Definition, Definitions>((_ => _.Title == definitionTitle));
+			return ServerExtensions.DeserializeXml<Achievements>(GetAchievementsFile().FullName);
 		}
 
-		public Definitions GetDefinitions()
+		static void ModifyAchievementsXml(Proc<Achievements> proc)
 		{
-			return TryReadObjectXml<Definitions, Achievements>();
+			var achievements = TryLoadAchievements() ?? new Achievements();
+			proc(achievements);
+			ServerExtensions.SafeSerializeXml(XmlAchievementsProvider.GetAchievementsFile().FullName, achievements);
+		}
+
+		Definition GetDefinition(string definitionTitle)
+		{
+			return TryLoadAchievements()
+					.DefinitionCollection.Definitions
+					.Where(_ => _.Title == definitionTitle)
+					.FirstOrDefault();
+		}
+
+		public override Definition[] GetAllDefinitions()
+		{
+			return TryLoadAchievements()
+					.SafeNav(_ => _.DefinitionCollection.Definitions)
+					.ToArray();
+		}
+
+		public override User[] GetAllUsers()
+		{
+			return TryLoadAchievements()
+					.SafeNav(_ => _.UserCollection.Users)
+					.ToArray();
 		}
 
 		public User GetUser(string username)
 		{
-			var user = TryReadObjectXml<User, Users>((_ => _.Name == username));
+			var user = TryLoadAchievements()
+					.UserCollection.Users
+					.Where(_ => _.Name == username)
+					.FirstOrDefault();
+
 			if (user == null)
 				user = EnsureUserExistsInXml(username);
 
 			return user;
 		}
 
-		public Users GetUsers()
+		public override UserAchievement[] GetUserAchievements(string username)
 		{
-			return TryReadObjectXml<Users, Achievements>();
+			return TryLoadAchievements()
+					.UserCollection.Users
+					.Where(_ => _.Name == username)
+					.FirstOrDefault()
+					.UserAchievements
+					.ToArray();
 		}
 
-		public UserAchievement GetUserAchievement(string achievementTitle, string username)
-		{
-			var userAchievement = TryReadObjectXml<UserAchievement, User>(
-				(_ => _.Title == achievementTitle),
-				(_ => _.Name == username)
-			);
-
-			if (userAchievement == null)
-				userAchievement = EnsureUserAchievementExistsInXml(achievementTitle, username);
-
-			return userAchievement;
-		}
-
-		public void UpdateUserAchievement(UserAchievement achievement, User user)
+		public override void UpdateUserAchievement(UserAchievement achievement, string username)
 		{
 			CheckAchievementProgressAgainstDefinition(achievement);
-			WriteOrUpdateObjectXml<UserAchievement, User>(
-				achievement,
-				(_ => _.Title == achievement.Title),
-				(_ => _.Name == user.Name)
-			);
+			ModifyAchievementsXml((_ =>
+			{
+				var user = _.UserCollection.Users
+					.Where(__ => __.Name == username)
+					.FirstOrDefault();
+				var existingAchievement = user
+					.UserAchievements
+					.Where(__ => __.Title == achievement.Title)
+					.FirstOrDefault();
+				if (existingAchievement != null)
+					existingAchievement = achievement;
+				else
+					user.UserAchievements.Add(achievement);
+			}));
 		}
 
 		private void CheckAchievementProgressAgainstDefinition(UserAchievement achievement)
@@ -156,216 +193,79 @@ public class Service : WebServiceBase
 			achievement.Achieved = achievement.Progress == definition.Goal;     //TODO: this isn't really going to work the way we want it to for most achievements. Need a way to tell this method what operator to use
 		}
 
-		private UserAchievement EnsureUserAchievementExistsInXml(string achievementTitle, string username)
-		{
-			achievementTitle.AssertArgumentNonNull();
-			username.AssertArgumentNonNull();
-
-			var userAchievement = new UserAchievement() { Title = achievementTitle };
-			WriteOrUpdateObjectXml<UserAchievement, User>(
-				userAchievement,
-				(_ => _.Title == achievementTitle),
-				(_ => _.Name == username)
-			);
-			return userAchievement;
-		}
-
 		private User EnsureUserExistsInXml(string username)
 		{
 			username.AssertArgumentNonNull();
 
 			var user = new User { Name = username };
-			WriteOrUpdateObjectXml<User, Users>(
-				user,
-				(_ => _.Name == username)
-			);
+			ModifyAchievementsXml((_ => _.UserCollection.Users.Add(user)));
 			return GetUser(username);
-		}
-
-		protected override void EnsureXmlExists()
-		{
-			// TODO
-		}
-
-		[SerializableAttribute()]
-		[XmlTypeAttribute(AnonymousType = true)]
-		[XmlRootAttribute(Namespace = "", IsNullable = false)]
-		public partial class Achievements
-		{
-			[XmlElementAttribute("Definitions", typeof(Definitions), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
-			[XmlElementAttribute("Users", typeof(Users), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
-			public object[] Items;
-		}
-
-		[System.SerializableAttribute()]
-		[XmlTypeAttribute(AnonymousType = true)]
-		public partial class Definitions
-		{
-			[XmlElementAttribute("Definition", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
-			public Definition[] Definition;
-		}
-
-		[XmlTypeAttribute(AnonymousType = true)]
-		public class Definition
-		{
-			[XmlAttributeAttribute()]
-			public string Title;
-			[XmlAttributeAttribute()]
-			public string Description;
-			[XmlAttributeAttribute()]
-			public string Goal;
-			[XmlAttributeAttribute()]
-			public string Image;
-			[XmlAttributeAttribute()]
-			public string EventFilter;
-			[XmlAttributeAttribute()]
-			public bool HiddenUntilAchieved;
-		}
-
-		[System.SerializableAttribute()]
-		[XmlTypeAttribute(AnonymousType = true)]
-		public partial class Users
-		{
-			[XmlElementAttribute("User", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
-			public User[] User;
-		}
-
-		[System.SerializableAttribute()]
-		[XmlTypeAttribute(AnonymousType = true)]
-		public class User
-		{
-			[XmlAttributeAttribute()]
-			public string Name;
-			[XmlElementAttribute("UserAchievement", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
-			public UserAchievement[] UserAchievement;
-		}
-
-		[System.SerializableAttribute()]
-		[XmlTypeAttribute(AnonymousType = true)]
-		public class UserAchievement
-		{
-			[XmlAttributeAttribute()]
-			public string Title;
-			[XmlAttributeAttribute()]
-			public string Progress;
-			[XmlAttributeAttribute()]
-			public bool Achieved;
 		}
 	}
 
-	public abstract class XmlProviderBase
+	[SerializableAttribute()]
+	[XmlTypeAttribute(AnonymousType = true)]
+	[XmlRootAttribute(Namespace = "", IsNullable = false)]
+	public partial class Achievements
 	{
-		protected abstract string xmlPath { get; }
+		[XmlElementAttribute("Definitions", typeof(DefinitionCollection), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+		public DefinitionCollection DefinitionCollection;
+		[XmlElementAttribute("Users", typeof(UserCollection), Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+		public UserCollection UserCollection;
+	}
 
-		protected TObject TryReadObjectXml<TObject, KParent>(ScreenConnect.Func<TObject, bool> additionalValidator = null, ScreenConnect.Func<KParent, bool> parentValidator = null)
-		{
-			var objectName = typeof(TObject).Name;
-			try
-			{
-				var xdoc = XDocument.Load(xmlPath);
-				return FromXElement<TObject>(xdoc.Descendants(typeof(TObject).Name)
-					.Where(_ => additionalValidator != null ? additionalValidator(FromXElement<TObject>(_)) : true)        // TODO: find a way to only call FromXElement once
-					.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_.Parent)) : true)
-					.FirstOrDefault());
-			}
-			catch (FileNotFoundException)
-			{
-				EnsureXmlExists();
-			}
-			catch (Exception ex)
-			{
-				// TODO: something
-			}
+	[XmlTypeAttribute(AnonymousType = true)]
+	public class Definition
+	{
+		[XmlAttributeAttribute()]
+		public string Title;
+		[XmlAttributeAttribute()]
+		public string Description;
+		[XmlAttributeAttribute()]
+		public string Goal;
+		[XmlAttributeAttribute()]
+		public string Image;
+		[XmlAttributeAttribute()]
+		public string EventFilter;
+		[XmlAttributeAttribute()]
+		public bool HiddenUntilAchieved;
+	}
 
-			return default(TObject);
-		}
+	[System.SerializableAttribute()]
+	[XmlTypeAttribute(AnonymousType = true)]
+	public partial class DefinitionCollection
+	{
+		[XmlElementAttribute("Definition", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+		public List<Definition> Definitions;
+	}
 
-		protected void WriteObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<KParent, bool> parentValidator = null)
-		{
-			try
-			{
-				EditXml((xdoc) =>
-				{
-					var parentElement = xdoc.Descendants(typeof(KParent).Name)
-							.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_)) : true)
-							.FirstOrDefault();
-					if (parentElement != null)
-						parentElement.Add(ToXElement<TObject>(obj));
-					else
-						throw new ArgumentException(string.Format("Could not find specified parent ({0}) in XML", typeof(KParent).Name));
-				}
-				);
-			}
-			catch (FileNotFoundException)
-			{
-				EnsureXmlExists();
-			}
-			catch (Exception ex)
-			{
-				// TODO: something
-			}
-		}
+	[System.SerializableAttribute()]
+	[XmlTypeAttribute(AnonymousType = true)]
+	public partial class UserCollection
+	{
+		[XmlElementAttribute("User", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+		public List<User> Users;
+	}
 
-		protected void UpdateObjectXml<TObject, KParent>(TObject newObj, ScreenConnect.Func<TObject, bool> existingObjectValidator, ScreenConnect.Func<KParent, bool> parentValidator = null)
-		{
-			try
-			{
-				EditXml((xdoc) => xdoc.Descendants(typeof(TObject).Name)
-									.Where(_ => existingObjectValidator(FromXElement<TObject>(_)))
-									.Where(_ => parentValidator != null ? parentValidator(FromXElement<KParent>(_.Parent)) : true)
-									.FirstOrDefault()
-									.SafeDo(_ => _.ReplaceWith(ToXElement<TObject>(newObj)))
-				);
-			}
-			catch (FileNotFoundException)
-			{
-				EnsureXmlExists();
-			}
-			catch (Exception ex)
-			{
-				// TODO: something
-			}
-		}
+	[System.SerializableAttribute()]
+	[XmlTypeAttribute(AnonymousType = true)]
+	public class User
+	{
+		[XmlAttributeAttribute()]
+		public string Name;
+		[XmlElementAttribute("UserAchievement", Form = System.Xml.Schema.XmlSchemaForm.Unqualified)]
+		public List<UserAchievement> UserAchievements;
+	}
 
-		protected void WriteOrUpdateObjectXml<TObject, KParent>(TObject obj, ScreenConnect.Func<TObject, bool> objectValidator, ScreenConnect.Func<KParent, bool> parentValidator = null)
-		{
-			var item = TryReadObjectXml<TObject, KParent>(objectValidator, parentValidator);
-			if (item != null)
-				UpdateObjectXml<TObject, KParent>(obj, objectValidator, parentValidator);
-			else
-				WriteObjectXml<TObject, KParent>(obj, parentValidator);
-		}
-
-		protected TObject Deserialize<TObject>(XmlReader xmlReader)
-		{
-			var serilalizer = new XmlSerializer(typeof(TObject));
-			return (TObject)serilalizer.Deserialize(xmlReader);
-		}
-
-		protected XElement ToXElement<TObject>(object obj)
-		{
-			using (var memoryStream = new MemoryStream())
-			{
-				using (TextWriter streamWriter = new StreamWriter(memoryStream))
-				{
-					var xmlSerializer = new XmlSerializer(typeof(TObject));
-					xmlSerializer.Serialize(streamWriter, obj);
-					return XElement.Parse(Encoding.ASCII.GetString(memoryStream.ToArray()));
-				}
-			}
-		}
-
-		protected TObject FromXElement<TObject>(XElement xElement)
-		{
-			return Deserialize<TObject>(xElement.CreateReader());
-		}
-
-		protected void EditXml(Proc<XDocument> proc)
-		{
-			var xdoc = XDocument.Load(xmlPath);
-			proc(xdoc);
-			xdoc.Save(xmlPath);
-		}
-		protected abstract void EnsureXmlExists();
+	[System.SerializableAttribute()]
+	[XmlTypeAttribute(AnonymousType = true)]
+	public class UserAchievement
+	{
+		[XmlAttributeAttribute()]
+		public string Title;
+		[XmlAttributeAttribute()]
+		public string Progress;
+		[XmlAttributeAttribute()]
+		public bool Achieved;
 	}
 }

@@ -81,9 +81,9 @@ SC.event.addGlobalHandler(SC.event.ExecuteCommand, function (eventArgs) {
 				console.log("AchievementDefinitions: " + JSON.stringify(result));
 
 				var achievementsPanel = $div({ id: 'AchievementsPanel' },
-					result.Definition.map(function (def) {
-						var userAchievement = window.userAchievementData.Achievements.UserAchievement ?
-							window.userAchievementData.Achievements.UserAchievement.filter(function (ach) { return ach.Title === def.Title; })[0] :
+					result.map(function (def) {
+						var userAchievement = window.userAchievementData.Achievements ?
+							window.userAchievementData.Achievements.filter(function (ach) { return ach.Title === def.Title; })[0] :
 							null;
 						var defPanel = $div({ id: 'DefinitionPanel' },
 							[
